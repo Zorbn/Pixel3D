@@ -1,94 +1,76 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Threading;
-using System.Threading.Tasks;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 
 namespace Pixel3D;
 
-public struct RaycastHit
+public struct Hit
 {
-    public int Tile;
     public float Distance;
-    public bool HitXSide;
+    public int Tile;
+    public bool XSide;
 }
 
 public class Game1 : Game
 {
     private const int ScreenWidth = 320;
     private const int ScreenHeight = 180;
-    private const float Scale = 2f;
-    private static readonly Vector2 ScreenPos = new(0, (ScreenHeight - 1) * Scale);
-    private const float PiOver2 = MathF.PI / 2;
-    private const int CenterY = ScreenHeight / 2;
-    private const int WallHeight = ScreenHeight;
 
     private GraphicsDeviceManager graphics;
     private Color[] screenPixels;
     private Texture2D screenTexture;
     private SpriteBatch spriteBatch;
 
-    private static readonly Color[] texture =
+    private static readonly int[] Map =
     {
-        Color.Black, Color.White, Color.White, Color.White, Color.White, Color.White, Color.White, Color.Red,
-        Color.White, Color.White, Color.White, Color.White, Color.White, Color.White, Color.White, Color.Black
+        2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,
+        2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,
+        2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,
+        2,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,0,0,0,0,2,
+        2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,2,
+        2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,2,
+        2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,2,
+        2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,2,
+        2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,2,
+        2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,
+        2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,
+        2,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,2,
+        2,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,2,
+        2,0,0,0,0,0,0,0,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,2,
+        2,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,2,
+        2,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,2,
+        2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,
+        2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,
+        2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,
+        2,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,
+        2,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,
+        2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,
+        2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,
+        2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,
     };
 
-    private static readonly int[] map =
-    {
-        2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,
-        2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,
-        2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,
-        2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,
-        2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,
-        2,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,0,0,2,
-        2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,
-        2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,
-        2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,
-        2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,
-        2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,
-        2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,
-        2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,2,
-        2,0,0,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,1,1,0,0,0,2,
-        2,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,2,
-        2,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,2,
-        2,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,2,
-        2,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,2,
-        2,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,2,
-        2,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,2,
-        2,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,2,
-        2,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,2,
-        2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,
-        2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,
-    };
+    private static readonly Color[] TileColors = { Color.White, Color.Orange, Color.Purple };
 
     private const int MapSize = 24;
 
-    private const float PlayerSpeed = 1f;
-    private const float PlayerRotSpeed = 1f;
-    
-    private float playerX = 2.1f;
-    private float playerY = 2.1f;
-    private float playerDir = MathF.PI / 8;
+    private float playerX = 0f;
+    private float playerY = 0f;
+    private float playerDir = 0f;
 
-    public int FrameCount;
-    public double ElapsedTime;
+    private float playerSpeed = 1f;
+    private float playerRotSpeed = 1f;
 
     public Game1()
     {
         graphics = new GraphicsDeviceManager(this);
         Content.RootDirectory = "Content";
         IsMouseVisible = true;
-        
-        IsFixedTimeStep = false;
-        graphics.SynchronizeWithVerticalRetrace = false;
     }
 
     protected override void Initialize()
     {
-        screenTexture = new Texture2D(GraphicsDevice, ScreenHeight, ScreenWidth);
+        screenTexture = new Texture2D(GraphicsDevice, ScreenWidth, ScreenHeight);
         screenPixels = new Color[ScreenWidth * ScreenHeight];
 
         base.Initialize();
@@ -103,130 +85,166 @@ public class Game1 : Game
 
     protected override void Update(GameTime gameTime)
     {
-        KeyboardState keyboardState = Keyboard.GetState();
+        KeyboardState keyState = Keyboard.GetState();
         
         if (GamePad.GetState(PlayerIndex.One).Buttons.Back == ButtonState.Pressed ||
-            keyboardState.IsKeyDown(Keys.Escape))
+            keyState.IsKeyDown(Keys.Escape))
             Exit();
 
         var deltaTime = (float)gameTime.ElapsedGameTime.TotalSeconds;
-        // Console.WriteLine($"{1f / deltaTime}");
 
-        FrameCount++;
-        ElapsedTime = gameTime.TotalGameTime.TotalSeconds;
-        
-        float playerForwardX = MathF.Cos(playerDir);
-        float playerForwardY = MathF.Sin(playerDir);
-
-        if (keyboardState.IsKeyDown(Keys.Up))
-        {
-            playerX += playerForwardX * deltaTime * PlayerSpeed;
-            playerY += playerForwardY * deltaTime * PlayerSpeed;
-        }
-
-        if (keyboardState.IsKeyDown(Keys.Down))
-        {
-            playerX -= playerForwardX * deltaTime * PlayerSpeed;
-            playerY -= playerForwardY * deltaTime * PlayerSpeed;
-        }
-
-        playerX = Math.Clamp(playerX, 0, MapSize);
-        playerY = Math.Clamp(playerY, 0, MapSize);
-
-        if (keyboardState.IsKeyDown(Keys.Left))
-        {
-            playerDir -= PlayerRotSpeed * deltaTime;
-        }
-
-        if (keyboardState.IsKeyDown(Keys.Right))
-        {
-            playerDir += PlayerRotSpeed * deltaTime;
-        }
-
-        playerDir %= MathF.PI * 2;
-
-        // var screenCenter = new Point(ScreenWidth / 2, ScreenHeight / 2);
-
-        // for (var y = 0; y < ScreenHeight; y++)
-        // {
-        //     float distToCenter = Math.Abs(y - ScreenHeight * 0.5f);
-        //     float cameraHeight = 0.5f * ScreenHeight;
-        //     float distance = cameraHeight / distToCenter;
+        // float moveFwd = 0f;
         //
-        //     for (var x = 0; x < ScreenWidth; x++)
+        // if (keyState.IsKeyDown(Keys.Up))
+        // {
+        //     moveFwd += 1.0f;
+        // }
+        //
+        // if (keyState.IsKeyDown(Keys.Down))
+        // {
+        //     moveFwd -= 1.0f;
+        // }
+        //
+        // if (keyState.IsKeyDown(Keys.Left))
+        // {
+        //     playerDir -= playerRotSpeed * deltaTime;
+        // }
+        //
+        // if (keyState.IsKeyDown(Keys.Right))
+        // {
+        //     playerDir += playerRotSpeed * deltaTime;
+        // }
+        //
+        // playerDir %= MathF.PI * 2;
+        //
+        // float playerForwardX = MathF.Cos(playerDir);
+        // float playerForwardY = MathF.Sin(playerDir);
+        //
+        // playerX += playerForwardX * moveFwd * deltaTime * playerSpeed;
+        // playerY += playerForwardY * moveFwd * deltaTime * playerSpeed;
+        
+        float playerForwardX = MathF.Sin(playerDir);
+        float playerForwardY = MathF.Cos(playerDir);
+        float playerRightX = MathF.Sin(playerDir + MathF.PI * 0.5f);
+	    float playerRightY = MathF.Cos(playerDir + MathF.PI * 0.5f);
+        
+        if (keyState.IsKeyDown(Keys.Up))
+        {
+	        playerX += playerForwardX * deltaTime * playerSpeed;
+	        playerY += playerForwardY * deltaTime * playerSpeed;
+        }
+        
+        if (keyState.IsKeyDown(Keys.Down))
+        {
+	        playerX -= playerForwardX * deltaTime * playerSpeed;
+	        playerY -= playerForwardY * deltaTime * playerSpeed;
+        }
+        
+        if (keyState.IsKeyDown(Keys.Left))
+        {
+	        playerX -= playerRightX * deltaTime * playerSpeed;
+	        playerY -= playerRightY * deltaTime * playerSpeed;
+        }
+        
+        if (keyState.IsKeyDown(Keys.Right))
+        {
+	        playerX += playerRightX * deltaTime * playerSpeed;
+	        playerY += playerRightY * deltaTime * playerSpeed;
+        }
+
+        if (keyState.IsKeyDown(Keys.A))
+        {
+	        playerDir -= deltaTime * playerRotSpeed;
+        }
+        
+        if (keyState.IsKeyDown(Keys.D))
+        {
+	        playerDir += deltaTime * playerRotSpeed;
+        }
+
+        // int screenCenterY = ScreenHeight / 2;
+        // for (var x = 0; x < ScreenWidth; x++)
+        // {
+        //     float xInterp = x / (float)ScreenWidth;
+        //     Hit hit = Cast(playerX, playerY, playerDir - MathF.PI / 8 + MathF.PI / 4 * xInterp);
+        //     int wallHalfHeight = (int)(ScreenHeight / hit.Distance * 0.5f);
+        //     int wallTop = screenCenterY - wallHalfHeight;
+        //     int wallBottom = screenCenterY + wallHalfHeight;
+        //     
+        //     for (var y = 0; y < wallTop; y++)
         //     {
-        //         Color color = (int)MathF.Floor(distance) % 2 == 0 ? Color.CornflowerBlue : Color.Aqua;
+        //         SetPixel(x, y, Color.White);
+        //     }
+        //     
+        //     for (var y = wallTop; y < wallBottom; y++)
+        //     {
+        //         Color color = TileColors[hit.Tile];
+        //         if (!hit.XSide)
+        //         {
+        //             color = new Color(color.R / 2, color.G / 2, color.B / 2);
+        //         }
         //         SetPixel(x, y, color);
+        //     }
+        //     
+        //     for (var y = wallBottom; y < ScreenHeight; y++)
+        //     {
+        //         SetPixel(x, y, Color.White);
         //     }
         // }
-
-        int centerY = ScreenHeight / 2;
-        int wallHeight = ScreenHeight;
-        for (var x = 0; x < ScreenWidth; x++)
-        {
-            // Color color = GetMapTile(x, y) == 1 ? Color.Blue : Color.Black;
-            float rayDir = playerDir - (MathF.PI * 0.25f * 0.5f) + MathF.PI * 0.25f * (x / (float)ScreenWidth);
-            RaycastHit hit = CastRay(playerX, playerY, rayDir);
-            
-            float columnHeight = wallHeight / hit.Distance;
-            int startY = centerY - (int)(columnHeight * 0.5f);
-            int endY = centerY + (int)(columnHeight * 0.5f);
-            
-            Color color = hit.Tile == 1 ? Color.Purple : Color.Orange;
-            
-            if (!hit.HitXSide)
-            {
-                color = new Color(color.R / 2, color.G / 2, color.B / 2);
-            }
-            
-            // TODO: Also draw floor and ceiling on either side of the wall.
-            
-            for (var y = startY; y < endY; y++)
-            {
-                // Color color = (int)MathF.Floor(distance) % 2 == 0 ? Color.CornflowerBlue : Color.Aqua;
-                SetPixel(x, y, color);
-            }
-        }
-
-        // Parallel.For(0, ScreenWidth, ParallelOptions, x =>
+        //
+        // for (var y = 0; y < MapSize; y++)
         // {
-        //     float rayDir = playerDir - (MathF.PI * 0.25f * 0.5f) + MathF.PI * 0.25f * (x / (float)ScreenWidth);
-        //     RaycastHit hit = CastRay(playerX, playerY, rayDir);
-        //     
-        //     float columnHeight = wallHeight / hit.Distance;
-        //     int startY = centerY - (int)(columnHeight * 0.5f);
-        //     int endY = centerY + (int)(columnHeight * 0.5f);
-        //     
-        //     Color color = hit.Tile == 1 ? Color.Purple : Color.Orange;
-        //     
-        //     if (!hit.HitXSide)
+        //     for (var x = 0; x < MapSize; x++)
         //     {
-        //         color = new Color(color.R / 2, color.G / 2, color.B / 2);
+        //         int tile = GetMapTile(x, y);
+        //         if (tile == 0) continue;
+        //         
+        //         SetPixel(x, y, TileColors[tile]);
         //     }
+        // }
+        //
+        // for (int i = 0; i < 5; i++)
+        // {
+        //     float x = playerX + playerForwardX * i;
+        //     float y = playerY + playerForwardY * i;
         //     
-        //     for (var y = startY; y < endY; y++)
-        //     {
-        //         SetPixel(x, y, color);
-        //     }
-        // });
+        //     SetPixel((int)x, (int)y, Color.Red);
+        // }
 
-        for (var x = 0; x < MapSize; x++)
+        for (int x = 0; x < ScreenWidth; x++)
         {
-            for (var y = 0; y < MapSize; y++)
-            {
-                SetPixel(x, y, GetMapTile(x, y) == 1 ? Color.Blue : Color.Black);
-            }
+	        for (int y = 0; y < ScreenHeight; y++)
+	        {
+		        SetPixel(x, y, Color.White);
+	        }
         }
 
-        for (int i = 0; i < 5; i++)
+        // renderWall(4, 4, 5, 4, 0, Color.Purple, 0, 1);
+
+        DrawWall(-1, -1, 1, 1, 1, 1, Color.Purple);
+        DrawWall(1, -1, 1, 1, 1, 3, Color.Purple);
+        
+        for (var y = 0; y < MapSize; y++)
         {
-            float x = playerX + playerForwardX * i;
-            float y = playerY + playerForwardY * i;
-            SetPixel((int)x, (int)y, Color.Red);
+	        for (var x = 0; x < MapSize; x++)
+	        {
+		        int tile = GetMapTile(x, y);
+		        if (tile == 0) continue;
+                
+		        SetPixel(x + 1, y + 1, TileColors[tile]);
+	        }
         }
         
-        SetPixel((int)playerX, (int)playerY, Color.White);
-
+        for (int i = 0; i < 5; i++)
+        {
+	        float x = playerX + playerForwardX * i;
+	        float y = playerY + playerForwardY * i;
+            
+	        SetPixel((int)x, (int)y, Color.Red);
+        }
+        
+        SetPixel((int)playerX, (int)playerY, Color.Black);
+        
         base.Update(gameTime);
     }
 
@@ -237,138 +255,174 @@ public class Game1 : Game
         screenTexture.SetData(screenPixels);
 
         spriteBatch.Begin(samplerState: SamplerState.PointClamp);
-        spriteBatch.Draw(screenTexture, ScreenPos, null, Color.White, -PiOver2, Vector2.One,
-            Scale, SpriteEffects.FlipHorizontally, 0f);
+        spriteBatch.Draw(screenTexture, Vector2.Zero, null, Color.White, 0f, Vector2.One,
+            2f, SpriteEffects.None, 0f);
         spriteBatch.End();
 
         base.Draw(gameTime);
     }
 
-    private int GetMapTile(int x, int y)
-    {
-        if (x < 0 || y < 0 || x >= MapSize || y >= MapSize) return 1;
-
-        return map[x + y * MapSize];
-    }
-
-    private void SetPixel(int x, int y, Color color)
-    {
-        if (x < 0 || y < 0 || x >= ScreenWidth || y >= ScreenHeight) return;
-
-        screenPixels[y + x * ScreenHeight] = color;
-    }
-
-    private RaycastHit CastRay(float startX, float startY, float dir)
+    private Hit Cast(float x, float y, float dir)
     {
         float rayDirX = MathF.Cos(dir);
         float rayDirY = MathF.Sin(dir);
         int rayTileDirX = MathF.Sign(rayDirX);
         int rayTileDirY = MathF.Sign(rayDirY);
-
-        // StepX is the distance the ray is required to travel along it's direction in order to move by 1 unit of x.
-        // To find this distance pythagoras's theorem is used (the distance is a hypotenuse). One of the side lengths is
-        // 1^2, aka 1. The other side length is the ray needs to travel on the y axis to travel one unit on the x axis, which
-        // is rayDirY / rayDirX. So the formula is stepX^2 = 1^2 + (rayDirY / rayDirX)^2. The same formula roughly applies to stepY.
-        // float stepX = MathF.Sqrt(1 + (rayDirY * rayDirY) / (rayDirX * rayDirX));
-        // float stepY = MathF.Sqrt(1 + (rayDirX * rayDirX) / (rayDirY * rayDirY));
-        // Since only the ratio between rayDirX and rayDirY matters, the following values can be used instead:
-        float stepX = MathF.Abs(1 / rayDirX);
-        float stepY = MathF.Abs(1 / rayDirY);
         
-        // Distance of partial steps along the direction of the ray required to reach the next grid cell from the offset
-        // within the starting grid cell.
+        // TODO: Fix divide by zero here.
+        // c^2 = 1^2 + (rayDirY / rayDirX)^2
+        float stepX = MathF.Abs(MathF.Sqrt(1 + (rayDirY * rayDirY) / (rayDirX * rayDirX)));
+        float stepY = MathF.Abs(MathF.Sqrt(1 + (rayDirX * rayDirX) / (rayDirY * rayDirY)));
+        
         float initialStepX;
         float initialStepY;
+
+        if (rayDirX > 0)
+        {
+            initialStepX = stepX * (MathF.Ceiling(x) - x);
+        }
+        else
+        {
+            initialStepX = stepX * (x - MathF.Floor(x));
+        }
         
-        if (rayTileDirX > 0)
+        if (rayDirY > 0)
         {
-            // Find the distance to the start of the next tile. That is the distance in the x direction.
-            // Multiply that distance by stepX to find the distance along the ray. This same method is used for the
-            // rest of the initialStep calculations.
-            initialStepX = (MathF.Ceiling(startX) - startX) * stepX;
+            initialStepY = stepY * (MathF.Ceiling(y) - y);
         }
         else
         {
-            initialStepX = (startX - MathF.Floor(startX)) * stepX;
+            initialStepY = stepY * (y - MathF.Floor(y));
         }
 
-        if (rayTileDirY > 0)
-        {
-            initialStepY = (MathF.Ceiling(startY) - startY) * stepY;
-        }
-        else
-        {
-            initialStepY = (startY - MathF.Floor(startY)) * stepY;
-        }
+        float distanceToNextX = initialStepX;
+        float distanceToNextY = initialStepY;
+        int tileX = (int)MathF.Floor(x);
+        int tileY = (int)MathF.Floor(y);
 
-        // Every time the ray moves one tile in either the x or y direction, keep track of the distance along it's direction
-        // that the ray would need to move from it's origin to reach the next tile in that direction. Of the two directions,
-        // always move in the direction that would require the ray to move the smallest distance from it's starting position
-        // to get there. Ie: If the distance between the ray's starting point and the next x tile is larger than the distance
-        // between the ray's starting point and the next y tile, move along the y direction next. Store the distance the
-        // ray needed to move to get to that tile. Now repeat.
-        float distanceFromStartToNextX = initialStepX;
-        float distanceFromStartToNextY = initialStepY;
-
-        int tileX = (int)MathF.Floor(startX);
-        int tileY = (int)MathF.Floor(startY);
+        float lastDistanceToNext = distanceToNextX;
+        float lastStep = stepX;
+        bool lastSideWasX = true;
 
         int hitTile = 0;
-        bool lastMovedOnX = false;
         while (hitTile == 0)
         {
-            if (distanceFromStartToNextX < distanceFromStartToNextY)
+            if (distanceToNextX < distanceToNextY)
             {
+                distanceToNextX += stepX;
                 tileX += rayTileDirX;
-                distanceFromStartToNextX += stepX;
-                lastMovedOnX = true;
+                
+                lastDistanceToNext = distanceToNextX;
+                lastStep = stepX;
+                lastSideWasX = true;
             }
             else
             {
+                distanceToNextY += stepY;
                 tileY += rayTileDirY;
-                distanceFromStartToNextY += stepY;
-                lastMovedOnX = false;
+                
+                lastDistanceToNext = distanceToNextY;
+                lastStep = stepY;
+                lastSideWasX = false;
             }
 
             hitTile = GetMapTile(tileX, tileY);
         }
 
-        // Find the distance to current x or y value depending on the side that was hit.
-        // The distance is along the direction of the ray. To avoid a fish eye effect where rays on the edges of the
-        // screen travel farther from the player than rays in the center (ie: when looking at a flat wall), calculate
-        // the distance from the hit to the camera plane (just a line in 2D).
-        if (lastMovedOnX)
+        float hitDistFromStart = lastDistanceToNext - lastStep;
+        float cameraPlaneDir = playerDir + MathF.PI / 2;
+        // float hitDistToCameraPlane = MathF.
+        float hitX = x + hitDistFromStart * rayDirX;
+        float hitY = y + hitDistFromStart * rayDirY;
+        float distance = MathF.Abs(MathF.Cos(cameraPlaneDir) * (playerY - hitY) -
+                                   MathF.Sin(cameraPlaneDir) * (playerX - hitX));
+        
+        return new Hit
         {
-            float distanceFromStartToCurrentX = distanceFromStartToNextX - stepX;
-            float x = startX + rayDirX * distanceFromStartToCurrentX;
-            float y = startY + rayDirY * distanceFromStartToCurrentX;
-            float screenAngle = playerDir + PiOver2;
+            Distance = distance,
+            Tile = hitTile,
+            XSide = lastSideWasX
+        };
+    }
+    
+    private void DrawWall(float x0, float y0, float z0, float x1, float y1, float z1, Color color)
+    {
+	    // float scale = 32;
+	    // float vFovFactor = ScreenWidth / MathF.Tan(MathF.PI / 8);
+	    float hFovFactor = ScreenHeight / MathF.Tan(MathF.PI / 4);
+	    float vFovFactor = hFovFactor;
+	    float zClip = 0.01f;
 
-            float distToCamera = MathF.Abs(MathF.Cos(screenAngle) * (playerY - y) - MathF.Sin(screenAngle) * (playerX - x));
+	    float dirX = MathF.Cos(playerDir);
+	    float dirY = MathF.Sin(playerDir);
 
-            return new RaycastHit
-            {
-                Tile = hitTile,
-                Distance = distToCamera,
-                HitXSide = true
-            };
-        }
-        else
-        {
+	    x0 -= playerX;
+	    x1 -= playerX;
+	    z0 -= playerY;
+	    z1 -= playerY;
+	    
+	    float oldX0 = x0;
+	    x0 = x0 * MathF.Cos(playerDir) - z0 * MathF.Sin(playerDir);
+	    z0 = oldX0 * MathF.Sin(playerDir) + z0 * MathF.Cos(playerDir);
+	    
+	    float oldX1 = x1;
+	    x1 = x1 * MathF.Cos(playerDir) - z1 * MathF.Sin(playerDir);
+	    z1 = oldX1 * MathF.Sin(playerDir) + z1 * MathF.Cos(playerDir);
 
-            float distanceFromStartToCurrentY = distanceFromStartToNextY - stepY;
-            float x = startX + rayDirX * distanceFromStartToCurrentY;
-            float y = startY + rayDirY * distanceFromStartToCurrentY;
-            float screenAngle = playerDir + PiOver2;
+	    if (z0 < zClip || z1 < zClip)
+	    {
+		    return;
+	    }
+	    
+	    z0 = MathF.Max(z0, zClip);
+	    z1 = MathF.Max(z1, zClip);
+	    // z0 /= fov;
+	    // z1 /= fov;
+	    var bl = new Point((int)(x0 * vFovFactor / z0), (int)(y1 * hFovFactor / z0));
+	    var tl = new Point((int)(x0 * vFovFactor / z0), (int)(y0 * hFovFactor / z0));
+	    var br = new Point((int)(x1 * vFovFactor / z1), (int)(y1 * hFovFactor / z1));
+	    var tr = new Point((int)(x1 * vFovFactor / z1), (int)(y0 * hFovFactor / z1));
 
-            float distToCamera = MathF.Abs(MathF.Cos(screenAngle) * (playerY - y) - MathF.Sin(screenAngle) * (playerX - x));
-            
-            return new RaycastHit
-            {
-                Tile = hitTile,
-                Distance = distToCamera,
-                HitXSide = false
-            };
-        }
+	    float tSlope = (tr.Y - tl.Y) / (float)(tr.X - tl.X);
+	    float bSlope = (br.Y - bl.Y) / (float)(br.X - bl.X);
+
+	    int minX = Math.Min(bl.X, br.X);
+	    int maxX = Math.Max(bl.X, br.X);
+
+	    for (int x = minX; x < maxX; x++)
+	    {
+		    int dx = x - bl.X;
+		    var ty = (int)(tl.Y + tSlope * dx);
+		    var by = (int)(bl.Y + bSlope * dx);
+		    int minY = Math.Min(ty, by);
+		    int maxY = Math.Max(ty, by);
+
+		    for (int y = minY; y < maxY; y++)
+		    {
+			    int cx = x + ScreenWidth / 2;
+			    int cy = y + ScreenHeight / 2;
+
+			    // float u = (x - minX) / (float)(maxX - minX) * texture.Length;
+			    // Color texColor = texture[(int)u % 16];
+
+			    if (cx >= 0 && cy >= 0 && cx < ScreenWidth && cy < ScreenHeight)
+				    screenPixels[cx + cy * ScreenWidth] = color;
+			    // screenPixels[cx + cy * ScreenWidth] = texColor;
+		    }
+	    }
+    }
+
+    private void SetPixel(int x, int y, Color color)
+    {
+        if (x < 0 || y < 0 || x >= ScreenWidth || y >= ScreenHeight) return;
+        
+        screenPixels[x + y * ScreenWidth] = color;
+    }
+
+    private int GetMapTile(int x, int y)
+    {
+        if (x < 0 || y < 0 || x >= MapSize || y >= MapSize) return 2;
+
+        return Map[x + y * MapSize];
     }
 }

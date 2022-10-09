@@ -9,11 +9,11 @@ public static class Program
     {
         using (var game = new Game1())
         {
-            Console.WriteLine($"Using {Environment.ProcessorCount} processors.");
+            // Console.WriteLine($"Using {Environment.ProcessorCount} processors.");
             
             game.Run();
             
-            Console.WriteLine($"AVG FPS: {game.FrameCount / game.ElapsedTime}");
+            // Console.WriteLine($"AVG FPS: {game.FrameCount / game.ElapsedTime}");
         }
     }
 }
