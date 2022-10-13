@@ -19,6 +19,7 @@ public class Game1 : Game
 
     private GraphicsDeviceManager graphics;
     private Color[] screenPixels;
+    private int[] pixelDepth;
     private Texture2D screenTexture;
     private SpriteBatch spriteBatch;
 
@@ -49,6 +50,12 @@ public class Game1 : Game
         2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,
         2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,
     };
+    
+    private static readonly Color[] texture =
+    {
+	    Color.Black, Color.White, Color.White, Color.White, Color.White, Color.White, Color.White, Color.Red,
+	    Color.White, Color.White, Color.White, Color.White, Color.White, Color.White, Color.White, Color.Black
+    };
 
     private static readonly Color[] TileColors = { Color.White, Color.Orange, Color.Purple };
 
@@ -72,6 +79,7 @@ public class Game1 : Game
     {
         screenTexture = new Texture2D(GraphicsDevice, ScreenWidth, ScreenHeight);
         screenPixels = new Color[ScreenWidth * ScreenHeight];
+        pixelDepth = new int[ScreenWidth * ScreenHeight];
 
         base.Initialize();
     }
@@ -223,6 +231,7 @@ public class Game1 : Game
 
         DrawWall(-1, -1, 1, 1, 1, 1, Color.Purple);
         DrawWall(1, -1, 1, 1, 1, 3, Color.Purple);
+        DrawFloor(-1, 1, 1, 1, 1, 3, Color.Aqua);
         
         for (var y = 0; y < MapSize; y++)
         {
@@ -260,6 +269,148 @@ public class Game1 : Game
         spriteBatch.End();
 
         base.Draw(gameTime);
+    }
+
+    private void DrawTriangle(int x1, int y1, int x2, int y2, int x3, int y3, Color color)
+    {
+	    x1 = Math.Clamp(x1, 0, ScreenWidth);
+	    x2 = Math.Clamp(x2, 0, ScreenWidth);
+	    x3 = Math.Clamp(x3, 0, ScreenWidth);
+	    y1 = Math.Clamp(y1, 0, ScreenHeight);
+	    y2 = Math.Clamp(y2, 0, ScreenHeight);
+	    y3 = Math.Clamp(y3, 0, ScreenHeight);
+	    
+	    int topX, topY;
+	    int midX, midY;
+	    int btmX, btmY;
+
+	    if (y1 < y2)
+	    {
+		    if (y1 < y3)
+		    {
+			    if (y2 < y3)
+			    {
+				    topX = x1;
+				    topY = y1;
+				    midX = x2;
+				    midY = y2;
+				    btmX = x3;
+				    btmY = y3;
+			    }
+			    else
+			    {
+				    topX = x1;
+				    topY = y1;
+				    midX = x3;
+				    midY = y3;
+				    btmX = x2;
+				    btmY = y2;
+			    }
+		    }
+		    else
+		    {
+			    topX = x3;
+			    topY = y3;
+			    midX = x1;
+			    midY = y1;
+			    btmX = x2;
+			    btmY = y2;
+		    }
+	    }
+	    else
+	    {
+		    if (y2 < y3)
+		    {
+			    if (y1 < y3)
+			    {
+				    topX = x2;
+				    topY = y2;
+				    midX = x1;
+				    midY = y1;
+				    btmX = x3;
+				    btmY = y3;
+			    }
+			    else
+			    {
+				    topX = x2;
+				    topY = y2;
+				    midX = x3;
+				    midY = y3;
+				    btmX = x1;
+				    btmY = y1;
+			    }
+		    }
+		    else
+		    {
+			    topX = x3;
+			    topY = y3;
+			    midX = x2;
+			    midY = y2;
+			    btmX = x1;
+			    btmY = y1;
+		    }
+	    }
+
+	    if (topY == midY)
+	    {
+		    DrawFlatTopTriangle(topX, topY, midX, midY, btmX, btmY, color);
+	    }
+	    else if (midY == btmY)
+	    {
+		    DrawFlatBottomTriangle(topX, topY, midX, midY, btmX, btmY, color);
+	    }
+	    else
+	    {
+		    int extraY = midY;
+		    int extraX = (int)MathF.Floor((float)(midY - topY) / (btmY - topY) * (btmX - topX) + topX);
+		    
+		    DrawFlatBottomTriangle(topX, topY, midX, midY, extraX, extraY, color);
+		    DrawFlatTopTriangle(midX, midY, extraX, extraY, btmX, btmY, color);
+	    }
+    }
+
+    private void DrawFlatBottomTriangle(int x1, int y1, int x2, int y2, int x3, int y3, Color color)
+    {
+	    int minY = y1;
+	    int maxY = y2;
+
+	    float leftSlope = (MathF.Min(x2, x3) - x1) / (maxY - minY);
+	    float rightSlope = (MathF.Max(x2, x3) - x1) / (maxY - minY);
+
+	    for (int y = minY; y < maxY; y++)
+	    {
+		    int dy = y - minY;
+		    int minX = (int)MathF.Floor(dy * leftSlope) + x1;
+		    int maxX = (int)MathF.Ceiling(dy * rightSlope) + x1;
+
+		    for (int x = minX; x < maxX; x++)
+		    {
+			    SetPixel(x, y, color);
+		    }
+	    }
+    }
+    
+    private void DrawFlatTopTriangle(int x1, int y1, int x2, int y2, int x3, int y3, Color color)
+    {
+	    int minY = y1;
+	    int maxY = y3;
+	    int minX = Math.Min(x1, x2);
+	    int maxX = Math.Max(x1, x2);
+
+	    float leftSlope = (x3 - minX) / (float)(maxY - minY);
+	    float rightSlope = (x3 - maxX) / (float)(maxY - minY);
+
+	    for (int y = minY; y < maxY; y++)
+	    {
+		    int dy = y - minY;
+		    int minLineX = (int)MathF.Floor(dy * leftSlope) + minX;
+		    int maxLineX = (int)MathF.Ceiling(dy * rightSlope) + maxX;
+
+		    for (int x = minLineX; x < maxLineX; x++)
+		    {
+			    SetPixel(x, y, color);
+		    }
+	    }
     }
 
     private Hit Cast(float x, float y, float dir)
@@ -345,17 +496,52 @@ public class Game1 : Game
         };
     }
     
-    private void DrawWall(float x0, float y0, float z0, float x1, float y1, float z1, Color color)
+    private void DrawFloor(float x0, float y0, float z0, float x1, float y1, float z1, Color color)
     {
-	    // float scale = 32;
-	    // float vFovFactor = ScreenWidth / MathF.Tan(MathF.PI / 8);
 	    float hFovFactor = ScreenHeight / MathF.Tan(MathF.PI / 4);
 	    float vFovFactor = hFovFactor;
 	    float zClip = 0.01f;
 
-	    float dirX = MathF.Cos(playerDir);
-	    float dirY = MathF.Sin(playerDir);
+	    x0 -= playerX;
+	    x1 -= playerX;
+	    z0 -= playerY;
+	    z1 -= playerY;
 
+	    float oldX0 = x0;
+	    float oldX1 = x1;
+	    float oldZ0 = z0;
+	    float oldZ1 = z1;
+
+	    x0 = oldX0 * MathF.Cos(playerDir) - oldZ0 * MathF.Sin(playerDir);
+	    z0 = oldX0 * MathF.Sin(playerDir) + oldZ0 * MathF.Cos(playerDir);
+	    
+	    x1 = oldX1 * MathF.Cos(playerDir) - oldZ1 * MathF.Sin(playerDir);
+	    z1 = oldX1 * MathF.Sin(playerDir) + oldZ1 * MathF.Cos(playerDir);
+	    
+	    float x2 = oldX0 * MathF.Cos(playerDir) - oldZ1 * MathF.Sin(playerDir);
+	    float z2 = oldX0 * MathF.Sin(playerDir) + oldZ1 * MathF.Cos(playerDir);
+	    
+	    float x3 = oldX1 * MathF.Cos(playerDir) - oldZ0 * MathF.Sin(playerDir);
+	    float z3 = oldX1 * MathF.Sin(playerDir) + oldZ0 * MathF.Cos(playerDir);
+
+	    if (z0 < zClip || z1 < zClip || z2 < zClip || z3 < zClip) return;
+
+	    var screenCenter = new Point(ScreenWidth / 2, ScreenHeight / 2);
+	    var bl = new Point((int)(x0 * vFovFactor / z0), (int)(y0 * hFovFactor / z0)) + screenCenter;
+	    var tl = new Point((int)(x2 * vFovFactor / z2), (int)(y1 * hFovFactor / z2)) + screenCenter;
+	    var br = new Point((int)(x3 * vFovFactor / z3), (int)(y0 * hFovFactor / z3)) + screenCenter;
+	    var tr = new Point((int)(x1 * vFovFactor / z1), (int)(y1 * hFovFactor / z1)) + screenCenter;
+	    
+	    DrawTriangle(bl.X, bl.Y, br.X, br.Y, tr.X, tr.Y, color);
+	    DrawTriangle(bl.X, bl.Y, tl.X, tl.Y, tr.X, tr.Y, color);
+    }
+    
+    private void DrawWall(float x0, float y0, float z0, float x1, float y1, float z1, Color color)
+    {
+	    float hFovFactor = ScreenHeight / MathF.Tan(MathF.PI / 4);
+	    float vFovFactor = hFovFactor;
+	    float zClip = 0.01f;
+	    
 	    x0 -= playerX;
 	    x1 -= playerX;
 	    z0 -= playerY;
@@ -376,8 +562,7 @@ public class Game1 : Game
 	    
 	    z0 = MathF.Max(z0, zClip);
 	    z1 = MathF.Max(z1, zClip);
-	    // z0 /= fov;
-	    // z1 /= fov;
+	    
 	    var bl = new Point((int)(x0 * vFovFactor / z0), (int)(y1 * hFovFactor / z0));
 	    var tl = new Point((int)(x0 * vFovFactor / z0), (int)(y0 * hFovFactor / z0));
 	    var br = new Point((int)(x1 * vFovFactor / z1), (int)(y1 * hFovFactor / z1));
@@ -402,12 +587,14 @@ public class Game1 : Game
 			    int cx = x + ScreenWidth / 2;
 			    int cy = y + ScreenHeight / 2;
 
-			    // float u = (x - minX) / (float)(maxX - minX) * texture.Length;
-			    // Color texColor = texture[(int)u % 16];
+			    float u = (x - minX) / (float)(maxX - minX) * texture.Length;
+			    Color texColor = texture[(int)u % 16];
 
 			    if (cx >= 0 && cy >= 0 && cx < ScreenWidth && cy < ScreenHeight)
-				    screenPixels[cx + cy * ScreenWidth] = color;
-			    // screenPixels[cx + cy * ScreenWidth] = texColor;
+			    {
+				    // screenPixels[cx + cy * ScreenWidth] = color;
+				    screenPixels[cx + cy * ScreenWidth] = texColor;
+			    }
 		    }
 	    }
     }
